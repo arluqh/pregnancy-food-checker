@@ -1,0 +1,47 @@
+# 共通
+.env
+*.env
+*.env.*
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.log
+*.bak
+*.swp
+*.swo
+*.~
+
+# Python/Flask backend
+pregnancy-food-api/venv/
+pregnancy-food-api/.mypy_cache/
+pregnancy-food-api/.pytest_cache/
+pregnancy-food-api/__pycache__/
+pregnancy-food-api/src/__pycache__/
+pregnancy-food-api/src/models/__pycache__/
+pregnancy-food-api/src/routes/__pycache__/
+pregnancy-food-api/src/database/app.db
+
+# React/Vite frontend
+pregnancy-food-checker/node_modules/
+pregnancy-food-checker/dist/
+pregnancy-food-checker/build/
+pregnancy-food-checker/.next/
+pregnancy-food-checker/.cache/
+pregnancy-food-checker/.env
+pregnancy-food-checker/.eslintcache
+
+# Docker
+**/Dockerfile*
+**/docker-compose*.yml
+
+# OS/Editor
+.vscode/
+.idea/
+*.iml
+
+# その他
+*.lock
