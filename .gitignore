@@ -34,14 +34,7 @@ pregnancy-food-checker/.cache/
 pregnancy-food-checker/.env
 pregnancy-food-checker/.eslintcache
 
-# Docker
-**/Dockerfile*
-**/docker-compose*.yml
-
 # OS/Editor
 .vscode/
 .idea/
 *.iml
-
-# その他
-*.lock
