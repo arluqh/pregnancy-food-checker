@@ -26,6 +26,11 @@ export function rateLimit(config: RateLimitConfig) {
       const entry = rateLimitStore.get(clientId)
       
       if (!entry) {
+        // maxRequests=0の場合は全て拒否
+        if (config.maxRequests === 0) {
+          return { allowed: false, remaining: 0 }
+        }
+        
         // 新規クライアント
         rateLimitStore.set(clientId, {
           count: 1,
@@ -35,6 +40,11 @@ export function rateLimit(config: RateLimitConfig) {
       }
       
       if (now > entry.resetTime) {
+        // maxRequests=0の場合は全て拒否
+        if (config.maxRequests === 0) {
+          return { allowed: false, remaining: 0 }
+        }
+        
         // ウィンドウリセット
         rateLimitStore.set(clientId, {
           count: 1,

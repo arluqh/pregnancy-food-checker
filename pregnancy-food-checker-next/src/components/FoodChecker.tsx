@@ -326,6 +326,7 @@ export default function FoodChecker() {
                 onChange={handleImageUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 id="file-upload"
+                aria-label="画像をアップロード"
               />
               <Button 
                 variant="outline"

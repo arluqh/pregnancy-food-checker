@@ -1,5 +1,41 @@
 import { rateLimit } from '../lib/rate-limit'
-import { createMockRequest } from './setup'
+
+// テスト用のモックリクエスト作成関数
+const createMockRequest = (options: {
+  ip?: string
+  userAgent?: string
+  contentType?: string
+  referrer?: string
+  host?: string
+  method?: string
+  body?: any
+} = {}) => {
+  const headers = new Map()
+  
+  if (options.ip) {
+    headers.set('x-forwarded-for', options.ip)
+  }
+  if (options.userAgent) {
+    headers.set('user-agent', options.userAgent)
+  }
+  if (options.contentType) {
+    headers.set('content-type', options.contentType)
+  }
+  if (options.referrer) {
+    headers.set('referer', options.referrer)
+  }
+  if (options.host) {
+    headers.set('host', options.host)
+  }
+
+  return {
+    headers: {
+      get: (key: string) => headers.get(key.toLowerCase()) || null
+    },
+    method: options.method || 'POST',
+    json: async () => options.body || {}
+  } as any
+}
 
 describe('Rate Limiting', () => {
   // テスト用の設定

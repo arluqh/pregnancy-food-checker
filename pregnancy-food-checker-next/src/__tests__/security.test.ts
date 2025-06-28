@@ -1,5 +1,15 @@
 import { sanitizeAndValidatePrompt, validateApiResponse } from '../lib/security'
-import { createValidImageData, createInvalidImageData } from './setup'
+
+// テスト用データ作成関数
+const createValidImageData = () => {
+  // 1x1 PNG画像のBase64データ
+  const base64Data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAHGu/CJKQAAAABJRU5ErkJggg=='
+  return `data:image/png;base64,${base64Data}`
+}
+
+const createInvalidImageData = () => {
+  return 'data:text/plain;base64,SGVsbG8gV29ybGQ='
+}
 
 describe('Security Functions', () => {
   describe('sanitizeAndValidatePrompt', () => {
