@@ -112,10 +112,20 @@ export default function FoodChecker() {
         },
         body: JSON.stringify(body)
       })
-      console.log(response.body)
       
       if (!response.ok) {
-        throw new Error('分析に失敗しました')
+        // レート制限の場合の特別な処理
+        if (response.status === 429) {
+          throw new Error('利用制限に達しました。しばらく時間をおいてからお試しください。')
+        }
+        
+        // その他のエラー
+        try {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '分析に失敗しました')
+        } catch {
+          throw new Error('分析に失敗しました')
+        }
       }
       
       const data = await response.json()
