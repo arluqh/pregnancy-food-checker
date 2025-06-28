@@ -19,6 +19,34 @@ export default function FoodChecker() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isCameraMode, setIsCameraMode] = useState(false)
+  const [isWebView, setIsWebView] = useState(false)
+
+  // WebView環境検出
+  const detectWebView = () => {
+    const userAgent = navigator.userAgent.toLowerCase()
+    
+    // LINE WebView検出
+    const isLineWebView = userAgent.includes('line')
+    
+    // その他のWebView検出（Instagram, Facebook, Twitter等）
+    const isInstagramWebView = userAgent.includes('instagram')
+    const isFacebookWebView = userAgent.includes('fbav') || userAgent.includes('fban')
+    const isTwitterWebView = userAgent.includes('twitter')
+    
+    // iOS WebView検出
+    const isIOSWebView = /iphone|ipad|ipod/.test(userAgent) && !userAgent.includes('safari')
+    
+    // Android WebView検出
+    const isAndroidWebView = userAgent.includes('wv') || userAgent.includes('webview')
+    
+    return isLineWebView || isInstagramWebView || isFacebookWebView || isTwitterWebView || isIOSWebView || isAndroidWebView
+  }
+
+  // コンポーネントマウント時にWebView環境をチェック
+  useState(() => {
+    setIsWebView(detectWebView())
+  })
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -29,6 +57,42 @@ export default function FoodChecker() {
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const handleCameraCapture = async () => {
+    setIsCameraMode(true)
+    
+    try {
+      // WebView環境の場合は、外部ブラウザで開くことを推奨
+      if (isWebView) {
+        // フォールバック: ファイル選択（WebViewでも動作する）
+        const input = document.getElementById('camera-capture') as HTMLInputElement
+        if (input) {
+          input.click()
+        }
+      } else {
+        // 通常のブラウザの場合
+        const input = document.getElementById('camera-capture') as HTMLInputElement
+        if (input) {
+          input.click()
+        }
+      }
+    } finally {
+      // 少し遅延してからカメラモードを解除
+      setTimeout(() => setIsCameraMode(false), 1000)
+    }
+  }
+
+  const openInExternalBrowser = () => {
+    // 現在のURLを外部ブラウザで開くためのメッセージを表示
+    const currentUrl = window.location.href
+    
+    // クリップボードにURLをコピー
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentUrl)
+    }
+    
+    alert('カメラ機能を使用するには、外部ブラウザ（Safari、Chrome等）で開いてください。\n\nURLがコピーされました。\nブラウザのアドレスバーに貼り付けてアクセスしてください。')
   }
 
   const handleAnalyze = async () => {
@@ -191,6 +255,23 @@ export default function FoodChecker() {
             <Camera className="w-24 h-24 text-gray-600 mx-auto mb-6" />
           </div>
 
+          {/* WebView Notice */}
+          {isWebView && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="text-sm text-yellow-800 text-center">
+                <p className="font-semibold mb-2">📱 アプリ内ブラウザでご利用中です</p>
+                <p className="mb-2">カメラ機能を使用するには、外部ブラウザで開くことをおすすめします。</p>
+                <Button 
+                  onClick={openInExternalBrowser}
+                  size="sm"
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                >
+                  外部ブラウザで開く
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Image Preview */}
           {selectedImage && (
             <div className="text-center mb-6">
@@ -213,14 +294,17 @@ export default function FoodChecker() {
                 accept="image/*"
                 capture="environment"
                 onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className="hidden"
                 id="camera-capture"
+                autoFocus
               />
               <Button 
                 variant="outline"
-                className="w-full py-4 text-gray-700 border-2 border-gray-300 rounded-full hover:bg-gray-50"
+                onClick={handleCameraCapture}
+                disabled={isCameraMode}
+                className="w-full py-4 text-gray-700 border-2 border-gray-300 rounded-full hover:bg-gray-50 disabled:opacity-50"
               >
-                📷 写真を撮影
+                {isCameraMode ? '📷 カメラ準備中...' : isWebView ? '📷 写真を撮影（制限有り）' : '📷 写真を撮影'}
               </Button>
             </div>
             

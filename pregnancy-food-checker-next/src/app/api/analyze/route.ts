@@ -184,10 +184,14 @@ async function callGeminiAPI(imageData: string) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('API called at:', new Date().toISOString())
+  
   try {
     const body = await request.json()
+    console.log('Request body received, has image:', !!body?.image)
 
     if (!body || !body.image) {
+      console.log('Error: No image data provided')
       return NextResponse.json(
         { error: '画像データが提供されていません' },
         { status: 400 }
@@ -195,9 +199,11 @@ export async function POST(request: NextRequest) {
     }
 
     const imageData = body.image
+    console.log('Image data length:', imageData.length)
 
     // Base64画像データの検証（簡易）
     if (!imageData.startsWith('data:image/')) {
+      console.log('Error: Invalid image format')
       return NextResponse.json(
         { error: '無効な画像形式です' },
         { status: 400 }
@@ -207,13 +213,16 @@ export async function POST(request: NextRequest) {
     // Gemini API呼び出し（Googleログイン不要）
     // APIキーが設定されていればGemini APIを使用、なければエラーを返す
     if (!process.env.GEMINI_API_KEY) {
+      console.log('Error: GEMINI_API_KEY not set')
       return NextResponse.json(
         { error: 'Gemini APIキーが設定されていません' },
         { status: 500 }
       )
     }
     
+    console.log('Calling Gemini API...')
     const result = await callGeminiAPI(imageData)
+    console.log('Gemini API result:', result)
 
     return NextResponse.json({
       success: true,
@@ -222,8 +231,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('分析エラー:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: `分析中にエラーが発生しました: ${error}` },
+      { error: `分析中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     )
   }

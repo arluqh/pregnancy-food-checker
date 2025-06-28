@@ -1,11 +1,7 @@
 {
-  "name": "pregnancy-food-checker",
   "version": 2,
-  "env": {
-    "GEMINI_API_KEY": "@gemini_api_key"
-  },
   "functions": {
-    "src/app/api/**/*": {
+    "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
   }
