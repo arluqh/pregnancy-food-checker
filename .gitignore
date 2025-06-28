@@ -38,3 +38,4 @@ pregnancy-food-checker/.eslintcache
 .vscode/
 .idea/
 *.iml
+.vercel
