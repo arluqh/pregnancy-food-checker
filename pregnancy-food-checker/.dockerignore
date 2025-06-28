@@ -1,9 +1,0 @@
-node_modules
-npm-debug.log
-dist
-build
-.env
-.vite
-coverage
-.DS_Store
-*.local
