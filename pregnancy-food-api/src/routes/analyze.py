@@ -4,8 +4,6 @@ import json
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import requests
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 import google.generativeai as genai
 
 analyze_bp = Blueprint('analyze', __name__)
@@ -65,15 +63,7 @@ def analyze_image_mock(image_data):
             'details': ''
         }
 
-def verify_google_id_token(token):
-    try:
-        # Googleの公開鍵でIDトークンを検証
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
-        return idinfo
-    except Exception as e:
-        return None
-
-def call_gemini_api(image_data, idinfo):
+def call_gemini_api(image_data):
     api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
         return {
@@ -175,19 +165,8 @@ def analyze_food():
                 'error': '無効な画像形式です'
             }), 400
         
-        # Google IDトークンがあれば検証しGemini APIを呼ぶ
-        idinfo = None
-        if 'id_token' in data:
-            idinfo = verify_google_id_token(data['id_token'])
-            if not idinfo:
-                return jsonify({
-                    'error': 'Googleログイン認証に失敗しました'
-                }), 401
-            # Gemini API呼び出し（ここでimage_dataとidinfoを使う）
-            result = call_gemini_api(image_data, idinfo)
-        else:
-            # 未ログイン時はモック
-            result = analyze_image_mock(image_data)
+        # Gemini API呼び出し（Googleログイン不要）
+        result = call_gemini_api(image_data)
         
         return jsonify({
             'success': True,

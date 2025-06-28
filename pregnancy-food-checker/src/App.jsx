@@ -1,18 +1,16 @@
 import { useState } from 'react'
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent } from '@/components/ui/card.jsx'
-import { Camera, CheckCircle, AlertTriangle, Home } from 'lucide-react'
+import { Camera, CheckCircle, AlertTriangle } from 'lucide-react'
 import './App.css'
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'http://backend:4000')
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'http://backend:4000')
 
 function App() {
   const [currentView, setCurrentView] = useState('main') // 'main', 'result'
   const [selectedImage, setSelectedImage] = useState(null)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [googleUser, setGoogleUser] = useState(null)
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
@@ -34,9 +32,6 @@ function App() {
       // APIエンドポイントにPOSTリクエストを送信
       const body = {
         image: selectedImage
-      }
-      if (googleUser && googleUser.credential) {
-        body.id_token = googleUser.credential
       }
       const response = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
@@ -81,17 +76,6 @@ function App() {
     setSelectedImage(null)
     setAnalysisResult(null)
     setIsAnalyzing(false)
-  }
-
-  // Googleログイン成功時のコールバック
-  const handleGoogleLoginSuccess = (credentialResponse) => {
-    setGoogleUser(credentialResponse)
-    // 必要に応じてcredentialResponse.credentialをバックエンドへ送信
-  }
-
-  // Googleログイン失敗時のコールバック
-  const handleGoogleLoginError = () => {
-    alert('Googleログインに失敗しました')
   }
 
   if (currentView === 'result' && analysisResult) {
@@ -143,100 +127,81 @@ function App() {
         </div>
         
         {/* Bottom Navigation */}
-        <div className="bg-white border-t border-gray-200 p-4">
-          <div className="flex justify-around">
-            <button className="flex flex-col items-center text-gray-600">
-              <Home className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
+        <footer className="bg-gradient-to-r from-pink-100 via-green-100 to-pink-100 border-t border-gray-200 p-4 text-center text-xs text-gray-500 select-none">
+          <span>妊娠中の食事チェッカー &copy; 2025</span>
+          <span className="mx-2">|</span>
+          <span>健康と安全をサポートします</span>
+        </footer>
       </div>
     )
   }
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <div className="min-h-screen bg-gradient-to-b from-pink-50 to-green-50 flex flex-col">
-        {/* Header */}
-        <div className="text-center py-8 px-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            妊娠中の
-          </h1>
-          <h1 className="text-3xl font-bold text-gray-800">
-            食事チェッカー
-          </h1>
-          {/* Googleログインボタン */}
-          {!googleUser && (
-            <div className="flex justify-center mt-4">
-              <GoogleLogin
-                onSuccess={handleGoogleLoginSuccess}
-                onError={handleGoogleLoginError}
-                useOneTap
+    <div className="min-h-screen bg-gradient-to-b from-pink-50 to-green-50 flex flex-col">
+      {/* Header */}
+      <div className="text-center py-8 px-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          妊娠中の
+        </h1>
+        <h1 className="text-3xl font-bold text-gray-800">
+          食事チェッカー
+        </h1>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-6">
+          {/* Camera Icon */}
+          <div className="text-center">
+            <Camera className="w-24 h-24 text-gray-600 mx-auto mb-6" />
+          </div>
+
+          {/* Image Preview */}
+          {selectedImage && (
+            <div className="text-center mb-6">
+              <img 
+                src={selectedImage} 
+                alt="選択された画像" 
+                className="w-48 h-48 object-cover rounded-lg mx-auto shadow-md"
               />
             </div>
           )}
-          {googleUser && (
-            <div className="mt-4 text-green-700 text-sm">Googleログイン済み</div>
-          )}
-        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-full max-w-md space-y-6">
-            {/* Camera Icon */}
-            <div className="text-center">
-              <Camera className="w-24 h-24 text-gray-600 mx-auto mb-6" />
-            </div>
-
-            {/* Image Preview */}
-            {selectedImage && (
-              <div className="text-center mb-6">
-                <img 
-                  src={selectedImage} 
-                  alt="選択された画像" 
-                  className="w-48 h-48 object-cover rounded-lg mx-auto shadow-md"
-                />
-              </div>
-            )}
-
-            {/* Upload Button */}
-            <div className="relative">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                id="image-upload"
-              />
-              <Button 
-                variant="outline"
-                className="w-full py-4 text-gray-700 border-2 border-gray-300 rounded-full hover:bg-gray-50"
-              >
-                写真をアップロード
-              </Button>
-            </div>
-
-            {/* Analyze Button */}
+          {/* Upload Button */}
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              id="image-upload"
+            />
             <Button 
-              onClick={handleAnalyze}
-              disabled={!selectedImage || isAnalyzing}
-              className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              className="w-full py-4 text-gray-700 border-2 border-gray-300 rounded-full hover:bg-gray-50"
             >
-              {isAnalyzing ? '分析中...' : 'チェック開始'}
+              写真をアップロード
             </Button>
           </div>
-        </div>
 
-        {/* Bottom Navigation */}
-        <div className="bg-white border-t border-gray-200 p-4">
-          <div className="flex justify-around">
-            <button className="flex flex-col items-center text-green-600">
-              <Home className="w-6 h-6" />
-            </button>
-          </div>
+          {/* Analyze Button */}
+          <Button 
+            onClick={handleAnalyze}
+            disabled={!selectedImage || isAnalyzing}
+            className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAnalyzing ? '分析中...' : 'チェック開始'}
+          </Button>
         </div>
       </div>
-    </GoogleOAuthProvider>
+
+      {/* Bottom Navigation */}
+      <footer className="bg-gradient-to-r from-pink-100 via-green-100 to-pink-100 border-t border-gray-200 p-4 text-center text-xs text-gray-500 select-none">
+        <span>妊娠中の食事チェッカー &copy; 2025</span>
+        <span className="mx-2">|</span>
+        <span>健康と安全をサポートします</span>
+      </footer>
+    </div>
   )
 }
 
