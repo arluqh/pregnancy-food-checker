@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
+import { sanitizeAndValidatePrompt, validateApiResponse } from '@/lib/security'
+import { validateReferrer, validateContentType, validateUserAgent } from '@/lib/auth'
 
-async function callGeminiAPI(imageData: string) {
+// Rate limiting設定（1時間に10回まで）
+const limiter = rateLimit({
+  maxRequests: 10,
+  windowMs: 60 * 60 * 1000 // 1時間
+})
+
+async function callGeminiAPI(imageData: string, safePrompt: string) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return {
@@ -19,13 +28,8 @@ async function callGeminiAPI(imageData: string) {
       // 画像データ（data:image/...;base64,....）からbase64部分を抽出
       const [, imageB64] = imageData.split(',')
 
-      const prompt = (
-        "妊婦がとる食事の画像を元に、そこに妊婦にとってリスクのある食材が含まれているかを判定する手助けをしてください。この画像に含まれる食品名をリストアップし、それぞれが妊婦にとってリスクがあるかどうかを判定してください。" +
-        "必ず次のJSON形式で返してください。" +
-        "\n\n" +
-        "{\n  \"foods\": [\n    {\"name\": \"食品名\", \"risk\": true/false, \"details\": \"リスクの説明（なければ空文字）\"},\n    ...\n  ]\n}" +
-        "\n\nリスクがある食品がなければ、'risk': false だけの配列で返してください。説明文や表は不要です。JSONのみを返してください。"
-      )
+      // 安全なプロンプトを使用（パラメータとして受け取る）
+      const prompt = safePrompt
 
       const requestBody = {
         contents: [
@@ -93,47 +97,19 @@ async function callGeminiAPI(imageData: string) {
         }
       }
 
-      // レスポンスからJSON部分を抽出（元のPythonコードと同じ方式）
-      const match = text.match(/\{[\s\S]*\}/)
-      if (!match) {
+      // レスポンスの検証とサニタイゼーション
+      const validation = validateApiResponse(text)
+      if (!validation.isValid || !validation.sanitizedResponse) {
         return {
           safe: false,
           detected_food: null,
-          message: 'GeminiのレスポンスからJSONを抽出できませんでした',
-          details: text
+          message: 'APIレスポンスの検証に失敗しました',
+          details: validation.error || ''
         }
       }
 
-      const foodsJson = match[0]
-      let foods: Array<{ name: string; risk: boolean; details: string }>
-      try {
-        const foodsData = JSON.parse(foodsJson)
-        foods = foodsData.foods || []
-      } catch (e) {
-        // JSONが不完全な場合、修復を試みる
-        let repairedJson = foodsJson
-        
-        // 不完全な配列を修復
-        if (!repairedJson.endsWith('}')) {
-          repairedJson = repairedJson.replace(/,?\s*$/, '') + ' } ] }'
-        }
-        
-        // 再度パースを試行
-        try {
-          const foodsData = JSON.parse(repairedJson)
-          foods = foodsData.foods || []
-        } catch {
-          return {
-            safe: false,
-            detected_food: null,
-            message: `GeminiのJSONパースエラー: ${e instanceof Error ? e.message : 'Unknown error'}`,
-            details: `元のJSON: ${foodsJson}\n修復試行: ${repairedJson}`
-          }
-        }
-      }
-
-      // リスク食品抽出
-      const riskyFoods = foods.filter(f => f.risk === true)
+      const foods = validation.sanitizedResponse.foods
+      const riskyFoods = foods.filter((f: { name: string; risk: boolean; details: string }) => f.risk === true)
       const safe = riskyFoods.length === 0
 
       if (safe) {
@@ -146,9 +122,9 @@ async function callGeminiAPI(imageData: string) {
       } else {
         return {
           safe: false,
-          detected_food: riskyFoods.map(f => f.name),
+          detected_food: riskyFoods.map((f: { name: string; risk: boolean; details: string }) => f.name),
           message: 'リスクがある食品が含まれている可能性があります。詳細をご確認ください。',
-          details: riskyFoods.map(f => `${f.name}: ${f.details}`).join('\n')
+          details: riskyFoods.map((f: { name: string; risk: boolean; details: string }) => `${f.name}: ${f.details}`).join('\n')
         }
       }
 
@@ -187,6 +163,51 @@ export async function POST(request: NextRequest) {
   console.log('API called at:', new Date().toISOString())
   
   try {
+    // 1. Rate Limiting チェック
+    const rateLimitResult = limiter.check(request)
+    if (!rateLimitResult.allowed) {
+      console.log('Rate limit exceeded')
+      return NextResponse.json(
+        { 
+          error: 'リクエスト制限に達しました。しばらく時間をおいてからお試しください。',
+          retryAfter: rateLimitResult.resetTime 
+        },
+        { status: 429 }
+      )
+    }
+
+    // 2. Content-Type チェック
+    const contentTypeValidation = validateContentType(request)
+    if (!contentTypeValidation.isValid) {
+      console.log('Invalid content type:', contentTypeValidation.error)
+      return NextResponse.json(
+        { error: 'リクエスト形式が不正です' },
+        { status: 400 }
+      )
+    }
+
+    // 3. Referrer チェック（開発環境では無効化）
+    if (process.env.NODE_ENV === 'production') {
+      const referrerValidation = validateReferrer(request)
+      if (!referrerValidation.isValid) {
+        console.log('Invalid referrer:', referrerValidation.error)
+        return NextResponse.json(
+          { error: 'アクセス元が不正です' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // 4. User-Agent チェック
+    const userAgentValidation = validateUserAgent(request)
+    if (!userAgentValidation.isValid) {
+      console.log('Invalid user agent:', userAgentValidation.error)
+      return NextResponse.json(
+        { error: 'アクセスが拒否されました' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     console.log('Request body received, has image:', !!body?.image)
 
@@ -199,19 +220,20 @@ export async function POST(request: NextRequest) {
     }
 
     const imageData = body.image
-    console.log('Image data length:', imageData.length)
 
-    // Base64画像データの検証（簡易）
-    if (!imageData.startsWith('data:image/')) {
-      console.log('Error: Invalid image format')
+    // 5. 画像データのサニタイゼーションと検証
+    const sanitizationResult = sanitizeAndValidatePrompt(imageData)
+    if (!sanitizationResult.isSafe) {
+      console.log('Image validation failed:', sanitizationResult.reason)
       return NextResponse.json(
-        { error: '無効な画像形式です' },
+        { error: sanitizationResult.reason },
         { status: 400 }
       )
     }
 
-    // Gemini API呼び出し（Googleログイン不要）
-    // APIキーが設定されていればGemini APIを使用、なければエラーを返す
+    console.log('Image data length:', imageData.length)
+
+    // Gemini API呼び出し（安全なプロンプトを使用）
     if (!process.env.GEMINI_API_KEY) {
       console.log('Error: GEMINI_API_KEY not set')
       return NextResponse.json(
@@ -221,7 +243,7 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('Calling Gemini API...')
-    const result = await callGeminiAPI(imageData)
+    const result = await callGeminiAPI(imageData, sanitizationResult.sanitizedPrompt!)
     console.log('Gemini API result:', result)
 
     return NextResponse.json({
@@ -233,7 +255,7 @@ export async function POST(request: NextRequest) {
     console.error('分析エラー:', error)
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: `分析中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: '分析中にエラーが発生しました。時間をおいて再度お試しください。' },
       { status: 500 }
     )
   }
